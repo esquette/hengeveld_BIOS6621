@@ -27,6 +27,8 @@ df_copy <- df
 df <- df %>%
   mutate(IQ = if_else(IQ == 999, 99, IQ))
 
+#ChatGPT help here to remember the mutate format.
+
 ```
 
 In this study, individual IQs were measured. Each person's home residence was also categorized as either "Far" or "Near" the local smelter. Below is a table summarizing the findings, grouped by smelter distance.
@@ -64,6 +66,8 @@ The IQ by group is shown below.
 df %>%
   group_by(Smelter) %>%
   summarise(mean_IQ = mean(IQ, na.rm = TRUE))
+
+#A little ChatGPT help here to remember the group_by. I didn't use R all summer! I'm rusty!
 
 ```
 
