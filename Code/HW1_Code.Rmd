@@ -73,5 +73,8 @@ df %>%
 ```
 
 ```{r}
-
+file.rename(
+  "Code/HW1_Code.docx",
+  "Reports/HW1_Code.docx"
+)
 ```
