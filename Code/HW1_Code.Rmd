@@ -19,6 +19,14 @@ library(here)
 ```{r Open Dataset, include = FALSE}
 df <- read.csv(here("DataRaw","iq_data.csv"))
 
+df_copy <- df
+```
+
+```{r Fix error}
+#PI emailed to indicate that the 999 value was an error, needs to be corrected to 99. 
+df <- df %>%
+  mutate(IQ = if_else(IQ == 999, 99, IQ))
+
 ```
 
 In this study, individual IQs were measured. Each person's home residence was also categorized as either "Far" or "Near" the local smelter. Below is a table summarizing the findings, grouped by smelter distance.
