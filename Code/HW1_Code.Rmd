@@ -25,7 +25,7 @@ df_copy <- df
 
 ```{r Fix error}
 #PI indicated that the 999 value was an error, needs to be corrected to 99. 
-df <- df %>%
+df_updated <- df %>%
   mutate(IQ = if_else(IQ == 999, 99, IQ))
 
 #ChatGPT help here to remember the mutate format.
@@ -34,7 +34,7 @@ df <- df %>%
 
 In this study, individual IQs were measured. Each person's home residence was also categorized as either "Far" or "Near" the local smelter. Below is a table summarizing the findings, grouped by smelter distance.
 ```{r Create Table, echo = FALSE}
-table <- table1(~IQ | Smelter, data = df)
+table <- table1(~IQ | Smelter, data = df_updated)
 
 table
 
@@ -44,7 +44,7 @@ table
 Below is a plot displaying IQ by distance from the smelter.
 ```{r Plot Results, echo = TRUE}
 #plot IQ according to distance
-plot <- ggplot(df, aes(x = Smelter, y = IQ)) + 
+plot <- ggplot(df_updated, aes(x = Smelter, y = IQ)) + 
   geom_boxplot() +
   labs(title = "IQ by Smelter Distance",
        caption = "Average IQ by distance from the local smelter")
@@ -54,27 +54,22 @@ plot
 
 
 
-The mean IQ was 
+The mean IQ was `r mean(df$IQ, na.rm = TRUE)`.
+
 ```{r Calculations, echo= FALSE}
 
 #overall mean
-overall_mean <- mean(df$IQ)
-overall_mean
+#overall_mean <- mean(df$IQ)
+#overall_mean
 ```
 
-The IQ by group is shown below.
-```{r Calculations, ec}
-df %>%
+The average IQ for those living Near the smelter was `r df_updated %>% filter(Smelter=="Near") %>% summarise(mean_IQ = mean(IQ, na.rm = TRUE))%>% pull(mean_IQ)`. The average IQ for those living far from the smelter was `r df_updated %>% filter(Smelter=="Far") %>% summarise(mean_IQ=mean(IQ, na.rm = TRUE))%>% pull(mean_IQ)`.
+
+```{r Calculations 2, echo=FALSE}
+df_updated %>%
   group_by(Smelter) %>%
   summarise(mean_IQ = mean(IQ, na.rm = TRUE))
 
 #A little ChatGPT help here to remember the group_by. I didn't use R all summer! I'm rusty!
 
-```
-
-```{r}
-file.rename(
-  "Code/HW1_Code.docx",
-  "Reports/HW1_Code.docx"
-)
 ```
