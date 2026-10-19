@@ -1,0 +1,544 @@
+---
+title: "Guth Data Checking Report"
+author: "Essie Hengeveld"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(table1)
+library(gtsummary)
+
+```
+
+```{r Load Data, include = FALSE}
+#Open the dataset
+
+df <- read.csv(file.path("C:/Users/sehen/OneDrive/Desktop/MPH Coursework/Statistical Consulting/hengeveld_BIOS6621/DataRaw/BIOS6621_Guth_data.csv"))
+
+#Take a peek
+View(df)
+
+#Save a backup version to restore from if needed. 
+df_backup <- df
+#df <- df_backup ##In case you need the backup!
+
+```
+
+```{r Tidy Variables, include = FALSE}
+df <- df %>%
+  mutate(
+    across(c(AAC_clinical_grade, CPC_clinical_grade, HAC_clinical_grade, ICAC_clinical_grade, NC_clinical_grade, PC_clinical_grade, RCC_clinical_grade, AAC_Final_Course_Grade, CPC_Final_Course_Grade, EC_Final_Course_Grade, HAC_Final_Course_Grade, ICAC_Final_Course_Grade, MSK_Final_Course_Grade, NC_Final_Course_Grade, OBG_Final_Course_Grade, OPC_Final_Course_Grade, PC_Final_Course_Grade, RCC_Final_Course_Grade, OPC_Clin_Grade_Sub, OPC_Clin_Grade_Anes), 
+           ~ factor(.x, 
+                    levels = c(0,1,2,3,9),
+                    labels = c("Fail", "Pass", "High Pass", "Honors", "Pass with remediation"))
+           ))
+
+
+#Variables EC_clinical_grade and MSK_clinical_grade were in the codebook but not this dataset. 
+
+df<- df %>%
+  mutate(URM = 
+      factor(URM,
+          levels = c(0,1,3),
+          labels = c("Non-URM", "URM", "Unknown"))
+  )
+
+df<- df %>%
+  mutate(URM_AAMC = 
+      factor(URM_AAMC,
+          levels = c(0,1,3),
+          labels = c("Non-URiM", "URiM", "Unknown"))
+  )
+
+
+#Some of the OSCE scores were saved as categorical variables. Resave as numeric. 
+df$P1SprBates_CommScore <- as.numeric(df$P1SprBates_CommScore)
+df$P2FallRamos_CommScore <- as.numeric (df$P2FallRamos_CommScore)
+df$P2FallRamos_OralPresScore <- as.numeric(df$P2FallRamos_OralPresScore)
+df$P2SpringSnelling_CommScore <- as.numeric(df$P2SpringSnelling_CommScore)
+
+```
+# Introduction & Study Background
+The research question for this project is, "Do students from racial/ethnic groups that are underrepresented in medicine (URM) have different Objective Structured Clinical Examination (OSCE) scores than those not from under-represented groups?" The clinical hypothesis is that scores will be different between URM and non-URM students.
+
+## Data 
+Dr. Guth, the primary investigator for this project, provided a cleaned data-set for checking prior to project implementation. This report documents the data-checking process for the provided data-set, which includes data from 199 students from the class of 2020 at the School of Medicine across all disciplines. 52 variables are included in the dataset, including clinical and final course grades, test scores, and limited demographic information. At the time the data were collected, not all students had completed every course, OSCE, or test, resulsting in some missingness for most variables. The data-set includes a constructed variable indicating whether a student belongs to a subgroup considered URM at the School of Medicine, as well as a variable flagging whether someone is URM according to the AAMC.
+
+See table 1 below for all OSCE related-variables included in the provided data-set, stratified by the provided university-level URM indicator. 
+
+```{r OSCE Only Table 1, echo = FALSE}
+#Create Table 1 for OSCE scores between URM vs non URM. Include the OVERALL column. 
+##Create the labels
+
+label(df$gender) <- "Gender"
+
+##Create the table
+OSCE_only <- table1(~
+       gender +
+       P1SprBates_PhysExamScore + 
+       P1SprBates_CommScore+
+       P1SprBates_MedDocScore+ 
+       P1FallBodySys_PhysExamScore+ 
+       P2FallRamos_PhysExamScore+ 
+       P2FallRamos_CommScore+ 
+       P2FallRamos_OralPresScore+ 
+       P2FallPayne_PhysExamScore+ 
+       P2FallPayne_CommScore+ 
+       P2FallPayne_MedDocScore+ 
+       P2SpringHyde_PhysExamScore+ 
+       P2SpringHyde_CommScore+ 
+       P2SpringHyde_MedDocScore+ 
+       P2SpringSnelling_PhysExamScore+
+       P2SpringSnelling_CommScore+
+       P2SpringSnelling_MedDocScore
+       |URM, data = df)
+
+##Call the table
+OSCE_only
+
+
+
+```
+<br>
+
+To see a table 1 for all 52 variables provided in the dataset, click below: 
+<details>
+<summary><strong>Table 1: Full Descriptive Statistics</strong></summary>
+
+```{r Full Table 1, echo= FALSE}
+tbl_summary(
+  df,
+  type = list(
+    P1SprBates_CommScore ~ "continuous",
+    P2FallRamos_CommScore ~ "continuous",
+    P2FallRamos_OralPresScore ~ "continuous",
+    P2SpringSnelling_CommScore ~ "continuous"),
+  by = URM
+)
+```
+
+</details>
+
+# Variable Examination
+We examined relevant variables using both tables and plots, a selection of which are shared in this report. 
+
+## OSCE Scores
+
+```{r Exploring the OSCES, include = FALSE}
+osce_scores <- c("P1SprBates_PhysExamScore", 
+       "P1SprBates_CommScore",
+       "P1SprBates_MedDocScore", 
+       "P1FallBodySys_PhysExamScore", 
+       "P2FallRamos_PhysExamScore", 
+       "P2FallRamos_CommScore", 
+       "P2FallRamos_OralPresScore", 
+       "P2FallPayne_PhysExamScore", 
+       "P2FallPayne_CommScore", 
+       "P2FallPayne_MedDocScore", 
+       "P2SpringHyde_PhysExamScore", 
+       "P2SpringHyde_CommScore", 
+       "P2SpringHyde_MedDocScore", 
+       "P2SpringSnelling_PhysExamScore",
+       "P2SpringSnelling_CommScore",
+       "P2SpringSnelling_MedDocScore")
+
+df <- df %>%
+  mutate(
+    missing_osce = rowSums(is.na(across(all_of(osce_scores))))
+  ) 
+
+df %>%
+  summarise(
+    missing_all_16 = sum(missing_osce == 16)
+  ) #Wow! 39 people missing all the OSCE scores. 
+
+
+df_reduced <- df %>%
+  filter(
+    missing_osce <16)
+
+#tbl_summary(df_reduced)
+
+```
+The outcome variables for this analysis are the OSCE scores. There are 16 different OSCE scores provided within this dataset. Most include several scores for the same interaction. Missingness for each score ranges from 41-65 observations, which is a significant missing rate for each score, and will need to be addressed in the analysis plan. A total of `r sum(df$missing_osce == 16)` students were missing all 16 OSCE scores, and will need to be excluded from the analysis, bringing the total sample down to `r nrow(df) - sum(df$missing_osce == 16)`. After excluding those with all OSCE scores missing, the remaining missingness within the OSCE scores ranges from 2-26. 
+
+<details>
+<summary><strong> "Click here for table 1 after removal of students with no OSCE scores" </strong> </summary>
+
+```{r}
+OSCE_only_reduced <- table1(~
+       gender +
+       P1SprBates_PhysExamScore + 
+       P1SprBates_CommScore+
+       P1SprBates_MedDocScore+ 
+       P1FallBodySys_PhysExamScore+ 
+       P2FallRamos_PhysExamScore+ 
+       P2FallRamos_CommScore+ 
+       P2FallRamos_OralPresScore+ 
+       P2FallPayne_PhysExamScore+ 
+       P2FallPayne_CommScore+ 
+       P2FallPayne_MedDocScore+ 
+       P2SpringHyde_PhysExamScore+ 
+       P2SpringHyde_CommScore+ 
+       P2SpringHyde_MedDocScore+ 
+       P2SpringSnelling_PhysExamScore+
+       P2SpringSnelling_CommScore+
+       P2SpringSnelling_MedDocScore
+       |URM, data = df_reduced)
+
+##Call the table
+OSCE_only_reduced
+
+```
+ </details>
+ 
+ <br>
+
+Each score was visualized using a histogram, revealing that all 16 scores show a strong left-skew, as shown in the example plot below:
+
+
+```{r Sample Left Skew, echo = FALSE, warning = FALSE, message = FALSE}
+bates_pe <- ggplot(df_reduced, aes(x = P1SprBates_PhysExamScore)) +
+  geom_histogram() +
+  geom_vline(
+    aes(xintercept = mean(P1SprBates_PhysExamScore, na.rm = TRUE),
+        linetype = "Mean")
+  ) +
+  geom_vline(
+    aes(xintercept = median(P1SprBates_PhysExamScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+bates_pe
+```
+
+<br>
+
+It was also observed that some of the OSCE scores have values including decimal points (eg: 98.53), while others only have values that are multiples of 5, as shown below:
+
+```{r Sample Weird Values, echo = FALSE, warning = FALSE, message = FALSE}
+bates_cs <- ggplot(df_reduced, aes(x = P1SprBates_CommScore)) +
+  geom_histogram() +
+  geom_vline(
+    aes(xintercept = mean(P1SprBates_CommScore, na.rm = TRUE),
+        linetype = "Mean")
+  ) +
+  geom_vline(
+    aes(xintercept = median(P1SprBates_CommScore, na.rm = TRUE),
+        linetype = "Median"))
+
+    
+bates_cs
+
+
+```
+
+<br>
+The strong left-skew indicates a need to reflect or transform the data before using any statistical tests requiring a normal distribution. Alternatively, non-parametric tests may be used for analysis. 
+
+
+```{r Code for All Histograms, include = FALSE}
+
+#Automate creation of histograms for all OSCE scores. 
+
+#Create the function:
+plot_osce <- function(variable) {
+  
+  ggplot(df_reduced, aes(x = .data[[variable]])) +
+    geom_histogram() +
+    geom_vline(
+      aes(
+        xintercept = mean(.data[[variable]], na.rm = TRUE),
+        linetype = "Mean"
+      )
+    ) +
+    geom_vline(
+      aes(
+        xintercept = median(.data[[variable]], na.rm = TRUE),
+        linetype = "Median"
+      )
+    )
+}
+
+#Run it!
+plots <- lapply(osce_scores, plot_osce)
+
+plots
+
+```
+
+### OSCE Scores Stratified by URM Status
+Box plots were used to visualize the differences in all OSCE scores by URM status. Three sample box plots are included below:
+
+```{r Sample Box Plots, echo = FALSE, warning = FALSE, message = FALSE}
+
+bates_1 <- ggplot(df_reduced, aes(x = URM, y= P1SprBates_PhysExamScore, color = URM)) +
+  geom_boxplot() +
+  geom_jitter()+
+  labs(
+    x = "Under Represented in Medicine",
+    y = "Bates Physical Exam Score",
+    title = "Bates Physical Exam Score By URM Status",
+    color = "URM Group"
+  ) 
+
+bates_1
+
+bates_2 <- ggplot(df_reduced, aes(x = URM, y= P1SprBates_CommScore, color = URM)) +
+  geom_boxplot() +
+  geom_jitter()+
+  labs(
+    x = "Under Represented in Medicine",
+    y = "Bates Comm Score",
+    title = "Bates Comm Score By URM Status",
+    color = "URM Group"
+  ) 
+
+bates_2
+
+bates_3 <- ggplot(df_reduced, aes(x = URM, y= P1SprBates_MedDocScore, color = URM)) +
+  geom_boxplot() +
+  geom_jitter()+
+  labs(
+    x = "Under Represented in Medicine",
+    y = "Bates Med Doc Score",
+    title = "Bates Comm Score By URM Status",
+    color = "URM Group"
+  ) 
+
+bates_3
+
+```
+
+```{r All Box Plots, include = FALSE}
+box_osce <- function(variable) {
+  
+  ggplot(df_reduced, aes(x = URM, y= .data[[variable]], color = URM)) +
+  geom_boxplot() +
+  geom_jitter()+
+  labs(
+    x = "Under Represented in Medicine",
+    y = variable,
+    title = "OSCE Score By URM Status",
+    color = "URM Group"
+  ) }
+
+lapply(osce_scores, box_osce)
+
+```
+
+<br>
+
+These plots show that in both URM and non-URM groups, the majority of scores are gathered at the top of range.
+
+
+## URM Variables
+Whether an individual is part of a group that is considered URM is the primary explanatory variable for this study. The provided dataset included two constructed variables that identified whether an individual was a member of a racial group that is URM. For this analysis, "URM" uses the University supplied definition which is any self-identification of having a  race/ethnicity of AI/AN, Hispanic, Vietnamese, Black/African American or Native Hawaiian. URM_aamc uses a more restrictive definition, which does not include Vietnamese. These two categories overlap, but not perfectly:
+
+```{r URM vs URM AAMC, echo = FALSE}
+table(df$URM, df$URM_AAMC)
+
+```
+
+
+
+For analysis, we intend to use the University supplied definition, as it includes more students who are under-represented at the School of Medicine, which may impact their experience of bias. 
+
+We then attempted to re-create the URM variable, using the three supplied race and ethnicity categories. We identified one person who is currently flagged as URM but there is no information in the three race/ethnicity columns to support that categorization. They should likely be recoded as "Unknown." That would bring the total number of unknowns in the data-set to 8. 
+
+```{r Code Exploring URM-ness, include = FALSE}
+
+table(df$race_cat_desc, df$race_desc)
+
+unique(df$additional_ethnicity)
+unique(df$race_desc)
+unique(df$race_cat_desc)
+
+#We'll focus on "additional_ethnicity" since it seems to specifically flag the URM categories: AI/AN, Hispanic, Vietnamese, Black/African American, Native Hawaiian.
+
+
+# #df <- df %>%
+#   mutate(
+#     urm_check = case_when(
+#       additional_ethnicity == "Black or African American"  ~ "URM",
+#       additional_ethnicity == "Spanish/Hispanic/Latino/Latina"  ~ "URM",
+#       additional_ethnicity == "Mexican, Mexican American, Chicano/Chicana"  ~ "URM",
+#       additional_ethnicity == "Asian Vietnamese"  ~ "URM",
+#       additional_ethnicity == "American Indian or Alaska Native"  ~ "URM",
+#       additional_ethnicity == "Native Hawaiian"   ~ "URM",
+#       additional_ethnicity == "Other Non-URM"   ~ "Non-URM",
+#       additional_ethnicity == "White"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Chinese"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Japanese"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Filipino"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Indian"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Other"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Korean"   ~ "Non-URM",
+#       additional_ethnicity == ""   ~ "Unknown",
+#       additional_ethnicity == "Not Hispanic or Latino"   ~ "Unknown",
+#       additional_ethnicity == "Decline to Respond"   ~ "Unknown",
+#     )
+#   )
+
+# df_not <- filter(df, additional_ethnicity == "Not Hispanic or Latino")
+# 
+# View(df_not)
+# 
+# table(df$URM, df$urm_check)
+# 
+# df_unknown <- filter(df, URM == "Unknown")
+# View(df_unknown)
+# 
+# df_check <- filter(df, urm_check == "Unknown")
+# View(df_check)
+
+###Lesson learned: The "Not Hispanic or Latino" category includes two non-URM and one URM, based on the other columns. So this isn't a clean categorization. I need something that checks across ALL the relevant columns, not just one. 
+
+urm_group <- c(
+  "American Indian or Alaska Native",
+  "American Indian or Alaskan Native",
+  "Asian Vietnamese",
+  "Black",
+  "Black or African American",
+  "Native Hawaiian",
+  "Spanish/Hispanic/Latino/Latina",
+  "Mexican, Mexican American, Chicano/Chicana",
+  "African American",
+  "African",
+  "Afro-Caribbean"
+)
+
+df <- df %>%
+  mutate(
+    urm_check_2 = case_when(
+      if_any(
+        c(additional_ethnicity, race_desc, race_cat_desc),
+        ~ .x %in% urm_group ) ~ "URM",
+      
+      TRUE ~ "Non-URM"
+      )
+    )
+  
+table(df$urm_check_2)
+table(df$URM)
+
+df %>%
+  filter(URM != urm_check_2) %>%
+  select(URM, urm_check_2, additional_ethnicity, race_desc, race_cat_desc, gender)
+
+```
+
+
+## Other Possible Covariates
+The rest of the dataset includes exam scores and both final and clinical course grades. 
+
+### Final Course Grades
+Per the PI, the final course grades are more relevant for this analysis than clinical course grades. Final course grades are divided into five categories: "Fail", "Pass with remediation", Pass", "High Pass", and "Honors". Final course grades were examined visually using bar charts, three samples of which are included below. The scores for each course appeared to follow one of three patterns: an approximately even distribution between pass, high pass, honors with some missing data; more than half missing, or all/almost all with a single score. See the samples below. 
+
+```{r Sample Bar Charts, echo = FALSE, warning = FALSE, message = FALSE}
+#One with lots of juicy data.
+hac_plot <- ggplot(df_reduced, aes(x = HAC_Final_Course_Grade)) + 
+  geom_bar()
+
+hac_plot
+
+#One with too much missing.
+aac_plot <- ggplot(df_reduced, aes(x = AAC_Final_Course_Grade)) +
+    geom_bar() 
+
+aac_plot
+
+
+#One with not enough variation.
+ec_plot <- ggplot(df_reduced, aes(x = EC_Final_Course_Grade)) +
+  geom_bar()
+
+ec_plot
+
+```
+
+
+```{r All Grades Bar Charts, include = FALSE}
+finals_grades <- c(
+  "AAC_Final_Course_Grade",
+  "CPC_Final_Course_Grade", 
+  "EC_Final_Course_Grade",
+  "HAC_Final_Course_Grade", 
+  "ICAC_Final_Course_Grade", 
+  "MSK_Final_Course_Grade", 
+  "NC_Final_Course_Grade", 
+  "OBG_Final_Course_Grade", 
+  "OPC_Final_Course_Grade", 
+  "PC_Final_Course_Grade", 
+  "RCC_Final_Course_Grade"
+)
+
+plot_grades <- function(variable) {
+  
+    ggplot(df, aes(x = .data[[variable]])) +
+    geom_bar() }
+
+lapply(finals_grades, plot_grades)
+
+step1_score <- ggplot(df, aes(x=STEP1_ExamScore))+
+            geom_histogram() +
+            geom_vline(
+                aes(xintercept = mean(STEP1_ExamScore, na.rm = TRUE),
+                linetype = "Mean")) +
+            geom_vline(
+                aes(xintercept = median(STEP1_ExamScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+
+```
+
+Of the final course grades, the CPC, HAC, ICAC, OBG, OPC and PC final course grades have enough data and enough variation to possibly be useful covariates. AAC_Final has more than 150 missing values in the original data-set. EC_Final and MSK_Final are almost all pass, therefore are not likely to be useful covariates. There are very few fail/pass with remediation scores across all final grades. 
+
+### STEP1 and STEP2 Exam Scores
+
+STEP1 and STEP2 Exam scores are also included in the dataset as both continuous variables and as related binary variables indicating pass/fail status. Of the total 160 with STEP 1 scores within the reduced dataset, only `r sum(df_reduced$STEP1_PassFail == "F")` had a failing score. Of the 160 with STEP2 within the reduced dataset, only `r sum(df_reduced$STEP2_PassFail == "F")` had a failing score. The test scores were plotted for visual examination:
+
+```{r STEP1 and STEP2 Scores, echo = FALSE, warning = FALSE, message = FALSE}
+step1_score <- ggplot(df, aes(x=STEP1_ExamScore))+
+            geom_histogram() +
+            geom_vline(
+                aes(xintercept = mean(STEP1_ExamScore, na.rm = TRUE),
+                linetype = "Mean")) +
+            geom_vline(
+                aes(xintercept = median(STEP1_ExamScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+
+step1_score  #Pretty normal! Could be a useful continuous variable. 
+
+step2_score <- ggplot(df, aes(x=STEP2CK_ExamScore))+
+            geom_histogram() +
+            geom_vline(
+                aes(xintercept = mean(STEP2CK_ExamScore, na.rm = TRUE),
+                linetype = "Mean")) +
+            geom_vline(
+                aes(xintercept = median(STEP2CK_ExamScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+
+step2_score #pretty normal!
+
+
+```
+
+
+
+# Questions for the Primary Investigator
+Q1. We observed that some OSCE scores are only multiples of 5, while others extend to the hundredths place (eg: 98.53). While this isn't a problem for analysis, it might signal an error with the scores, if they are both supposed to be formatted similarly. Is this difference in score values a cause for concern?
+
+Q2. For the 7-8 students whose URM status is currently categorized as "Unknown", do you have a preference for how these "Unknowns" are handled? It is a small enough group that it should not be included as a seperate sub-group for analysis, and should be either recoded as URM/non-URM or removed from the data-set. 
+
+Q3. Some gender identities are mentioned as being URM. Do we want to explore these in our analysis? If we want to explore the distinction between male/female, we have the data to do that. There are only a few "D" values included in the data. 
+
+Q4. There are some final grades that have enough variability to be useful as possible covariates. What would we expect the relationship between final course grades and OSCE scores to be? There are very few fail or pass with remediation options, so we would need to explore the distinctions between pass, high pass, and honors. How are these differentiated?
+
+Q5. The STEP1 and STEP2 exam scores are more normally distributed with minimal missingness. These might be able to function as covariates in a model. However, only a very small proportion of the sample failed. What might we expect the relationship between the STEP exam scores and the OSCE scores to be? 
+
