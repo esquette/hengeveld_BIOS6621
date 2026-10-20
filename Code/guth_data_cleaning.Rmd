@@ -1,0 +1,380 @@
+---
+title: "Guth_Data_Checking"
+author: "Essie Hengeveld"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#Libraries
+library(tidyverse)
+library(table1)
+library(ggplot2)
+library(gtsummary)
+
+```
+PI QUESTIONS/OBSERVATIONS:
+1. OSCE Scores show a strong left skew, suggesting that we'll need to transform them, use a non-parametric test or consider creating a binary variable using a cutoff score.
+2. Some of the scores seem suspiciously continous - with small decimal values. Others are much more on the 0s and 5s. 
+3. Confirming the URM variable: Does Afro-Caribbean and/or African still fit in the "black/African american bucket"?
+4. Confirming the URM variable: there is at least one person flagged as URM that doesn't have information in the three race/ethnicity columns to support that claim. Is there another criteria or column that might have been used to make this variable?
+5. Confirming URM: How do you want to proceed with the "unknowns"? There are 7 of them in the original URM column + the blank person, so that should probably be 8. That would be a very small group to include in the analysis all by itself. 
+6. Looking at the final grades: 
+- AAC_Final has more than 150 missing. Is that likely to be an error? Or have most people just not taken this yet?
+- CPC_final has ~ 50 missing (verify with table1). No fails, the rest distributed evenly between groups. Could be a useful variable.
+- EC_final is 100% pass. Not a useful variable.
+- HAC is missing some ~20 ish, has no fails, but is pretty distributed among the others. Could be a useful variable.
+- ICAC is missing some ~20 ish, has no fails, but is pretty distributed among the others. Could be a useful variable.
+- MSK is almost all pass, one fail and some missing. Unlikely to be useful.
+- OBG even has a pass with remediation! ~20, with good distribution between teh other 3. No fails. Could be useful. 
+- OPC is missing some ~20 ish, has no fails, but is pretty distributed among the others. Could be a useful variable.
+- PC is missing some ~20 ish, has no fails, but is pretty distributed among the others. Could be a useful variable.
+- RCC is missing more than 150 responses. Not likely to be useful variable. 
+7. What is the relationship between final grades and OSCE scores?
+8. For the final grades, since there are very few fails and very few pass with remediation, would it be interesting to look at pass vs. high pass vs pass with honors? What is the difference between these three?  
+9. Are we looking for bias in gender as well as race in the OSCE scores?
+10. The STEP1 and STEP2 exam scores have lovely normal distributions!
+```{r Data, include = FALSE}
+#Open the dataset
+
+df <- read.csv(file.path("C:/Users/sehen/OneDrive/Desktop/MPH Coursework/Statistical Consulting/hengeveld_BIOS6621/DataRaw/BIOS6621_Guth_data.csv"))
+
+
+#Take a peek
+
+View(df)
+
+#Save a backup version to restore from if needed. 
+
+df_backup <- df
+
+df <- df_backup
+```
+
+``` {r Create variable labels}
+
+df <- df %>%
+  mutate(
+    across(c(AAC_clinical_grade, CPC_clinical_grade, HAC_clinical_grade, ICAC_clinical_grade, NC_clinical_grade, PC_clinical_grade, RCC_clinical_grade, AAC_Final_Course_Grade, CPC_Final_Course_Grade, EC_Final_Course_Grade, HAC_Final_Course_Grade, ICAC_Final_Course_Grade, MSK_Final_Course_Grade, NC_Final_Course_Grade, OBG_Final_Course_Grade, OPC_Final_Course_Grade, PC_Final_Course_Grade, RCC_Final_Course_Grade, OPC_Clin_Grade_Sub, OPC_Clin_Grade_Anes), 
+           ~ factor(.x, 
+                    levels = c(0,1,2,3,9),
+                    labels = c("Fail", "Pass", "High Pass", "Honors", "Pass with remediation"))
+           ))
+
+
+#Variables EC_clinical_grade and MSK_clinical_grade were in the codebook but not this dataset. 
+
+df<- df %>%
+  mutate(URM = 
+      factor(URM,
+          levels = c(0,1,3),
+          labels = c("Non-URM", "URM", "Unknown"))
+  )
+
+df<- df %>%
+  mutate(URM_AAMC = 
+      factor(URM_AAMC,
+          levels = c(0,1,3),
+          labels = c("Non-URiM", "URiM", "Unknown"))
+  )
+
+#Some of the OSCE scores were saved as categorical variables. Resave as numeric. 
+df$P1SprBates_CommScore <- as.numeric(df$P1SprBates_CommScore)
+df$P2FallRamos_CommScore <- as.numeric (df$P2FallRamos_CommScore)
+df$P2FallRamos_OralPresScore <- as.numeric(df$P2FallRamos_OralPresScore)
+df$P2SpringSnelling_CommScore <- as.numeric(df$P2SpringSnelling_CommScore)
+
+```
+
+```{r Overview Dataset}
+
+tbl_summary(
+  df,
+  type = list(
+    P1SprBates_CommScore ~ "continuous",
+    P2FallRamos_CommScore ~ "continuous",
+    P2FallRamos_OralPresScore ~ "continuous",
+    P2SpringSnelling_CommScore ~ "continuous"
+  )
+)
+
+table(df$URM, df$URM_AAMC)
+
+tbl_summary(df)
+
+#Create Table 1 for OSCE scores between URM vs non URM. Include the OVERALL column. 
+##Create the labels
+
+
+OSCE_only <- table1(~
+       gender +
+       P1SprBates_PhysExamScore + 
+       P1SprBates_CommScore+
+       P1SprBates_MedDocScore+ 
+       P1FallBodySys_PhysExamScore+ 
+       P2FallRamos_PhysExamScore+ 
+       P2FallRamos_CommScore+ 
+       P2FallRamos_OralPresScore+ 
+       P2FallPayne_PhysExamScore+ 
+       P2FallPayne_CommScore+ 
+       P2FallPayne_MedDocScore+ 
+       P2SpringHyde_PhysExamScore+ 
+       P2SpringHyde_CommScore+ 
+       P2SpringHyde_MedDocScore+ 
+       P2SpringSnelling_PhysExamScore+
+       P2SpringSnelling_CommScore+
+       P2SpringSnelling_MedDocScore
+       |URM, data = df)
+
+OSCE_only
+
+
+```
+
+
+``` {r Histograms}
+#Histograms for OSCE Scores
+
+bates_pe <- ggplot(df, aes(x = P1SprBates_PhysExamScore)) +
+  geom_histogram() +
+  geom_vline(
+    aes(xintercept = mean(P1SprBates_PhysExamScore, na.rm = TRUE),
+        linetype = "Mean")
+  ) +
+  geom_vline(
+    aes(xintercept = median(P1SprBates_PhysExamScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+bates_pe
+#Left skewed
+
+bates_cs <- ggplot(df, aes(x = P1SprBates_CommScore)) +
+  geom_histogram() +
+  geom_vline(
+    aes(xintercept = mean(P1SprBates_CommScore, na.rm = TRUE),
+        linetype = "Mean")
+  ) +
+  geom_vline(
+    aes(xintercept = median(P1SprBates_CommScore, na.rm = TRUE),
+        linetype = "Median"))
+
+    
+bates_cs
+#Left skewed, mostly at 0s and 5s
+
+bates_md <- ggplot(df, aes(x=P1SprBates_MedDocScore))+
+            geom_histogram() +
+            geom_vline(
+                aes(xintercept = mean(P1SprBates_MedDocScore, na.rm = TRUE),
+                linetype = "Mean")) +
+            geom_vline(
+                aes(xintercept = median(P1SprBates_MedDocScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+bates_md 
+#Left skewed, lots of 100s.
+
+
+#Okay, this is working, but lets try to automate it.
+osce_scores <- c("P1SprBates_PhysExamScore", 
+       "P1SprBates_CommScore",
+       "P1SprBates_MedDocScore", 
+       "P1FallBodySys_PhysExamScore", 
+       "P2FallRamos_PhysExamScore", 
+       "P2FallRamos_CommScore", 
+       "P2FallRamos_OralPresScore", 
+       "P2FallPayne_PhysExamScore", 
+       "P2FallPayne_CommScore", 
+       "P2FallPayne_MedDocScore", 
+       "P2SpringHyde_PhysExamScore", 
+       "P2SpringHyde_CommScore", 
+       "P2SpringHyde_MedDocScore", 
+       "P2SpringSnelling_PhysExamScore",
+       "P2SpringSnelling_CommScore",
+       "P2SpringSnelling_MedDocScore")
+
+
+#Create the function:
+plot_osce <- function(variable) {
+  
+  ggplot(df, aes(x = .data[[variable]])) +
+    geom_histogram() +
+    geom_vline(
+      aes(
+        xintercept = mean(.data[[variable]], na.rm = TRUE),
+        linetype = "Mean"
+      )
+    ) +
+    geom_vline(
+      aes(
+        xintercept = median(.data[[variable]], na.rm = TRUE),
+        linetype = "Median"
+      )
+    )
+}
+
+plot_osce(osce_scores[1])
+
+plots <- lapply(osce_scores, plot_osce)
+
+plots
+
+```
+
+
+```{r Box Plots}
+
+
+box_osce <- function(variable) {
+  
+  ggplot(df, aes(x = URM, y= .data[[variable]], color = URM)) +
+  geom_boxplot() +
+  geom_jitter()+
+  labs(
+    x = "Under Represented in Medicine",
+    y = variable,
+    title = "OSCE Score By URM Status",
+    color = "URM Group"
+  ) }
+
+lapply(osce_scores, box_osce)
+
+```
+
+```{r Verify URM Status}
+
+table(df$race_cat_desc, df$race_desc)
+
+unique(df$additional_ethnicity)
+unique(df$race_desc)
+unique(df$race_cat_desc)
+
+#We'll focus on "additional_ethnicity" since it seems to specifically flag the URM categories: AI/AN, Hispanic, Vietnamese, Black/African American, Native Hawaiian.
+
+
+# #df <- df %>%
+#   mutate(
+#     urm_check = case_when(
+#       additional_ethnicity == "Black or African American"  ~ "URM",
+#       additional_ethnicity == "Spanish/Hispanic/Latino/Latina"  ~ "URM",
+#       additional_ethnicity == "Mexican, Mexican American, Chicano/Chicana"  ~ "URM",
+#       additional_ethnicity == "Asian Vietnamese"  ~ "URM",
+#       additional_ethnicity == "American Indian or Alaska Native"  ~ "URM",
+#       additional_ethnicity == "Native Hawaiian"   ~ "URM",
+#       additional_ethnicity == "Other Non-URM"   ~ "Non-URM",
+#       additional_ethnicity == "White"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Chinese"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Japanese"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Filipino"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Indian"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Other"   ~ "Non-URM",
+#       additional_ethnicity == "Asian Korean"   ~ "Non-URM",
+#       additional_ethnicity == ""   ~ "Unknown",
+#       additional_ethnicity == "Not Hispanic or Latino"   ~ "Unknown",
+#       additional_ethnicity == "Decline to Respond"   ~ "Unknown",
+#     )
+#   )
+
+# df_not <- filter(df, additional_ethnicity == "Not Hispanic or Latino")
+# 
+# View(df_not)
+# 
+# table(df$URM, df$urm_check)
+# 
+# df_unknown <- filter(df, URM == "Unknown")
+# View(df_unknown)
+# 
+# df_check <- filter(df, urm_check == "Unknown")
+# View(df_check)
+
+###Lesson learned: The "Not Hispanic or Latino" category includes two non-URM and one URM, based on the other columns. So this isn't a clean categorization. I need something that checks across ALL the relevant columns, not just one. 
+
+urm_group <- c(
+  "American Indian or Alaska Native",
+  "American Indian or Alaskan Native",
+  "Asian Vietnamese",
+  "Black",
+  "Black or African American",
+  "Native Hawaiian",
+  "Spanish/Hispanic/Latino/Latina",
+  "Mexican, Mexican American, Chicano/Chicana",
+  "African American",
+  "African",
+  "Afro-Caribbean"
+)
+
+df <- df %>%
+  mutate(
+    urm_check_2 = case_when(
+      if_any(
+        c(additional_ethnicity, race_desc, race_cat_desc),
+        ~ .x %in% urm_group ) ~ "URM",
+      
+      TRUE ~ "Non-URM"
+      )
+    )
+  
+table(df$urm_check_2)
+table(df$URM)
+
+df %>%
+  filter(URM != urm_check_2) %>%
+  select(URM, urm_check_2, additional_ethnicity, race_desc, race_cat_desc, gender)
+
+```
+```{r  Final Grades plots}
+
+#You can see the differences between groups in the table 1 I've created. Use bar plots to visualize. 
+
+
+finals_grades <- c(
+  "AAC_Final_Course_Grade",
+  "CPC_Final_Course_Grade", 
+  "EC_Final_Course_Grade",
+  "HAC_Final_Course_Grade", 
+  "ICAC_Final_Course_Grade", 
+  "MSK_Final_Course_Grade", 
+  "NC_Final_Course_Grade", 
+  "OBG_Final_Course_Grade", 
+  "OPC_Final_Course_Grade", 
+  "PC_Final_Course_Grade", 
+  "RCC_Final_Course_Grade"
+)
+
+plot_grades <- function(variable) {
+  
+    ggplot(df, aes(x = .data[[variable]])) +
+    geom_bar() }
+
+lapply(finals_grades, plot_grades)
+
+step1_score <- ggplot(df, aes(x=STEP1_ExamScore))+
+            geom_histogram() +
+            geom_vline(
+                aes(xintercept = mean(STEP1_ExamScore, na.rm = TRUE),
+                linetype = "Mean")) +
+            geom_vline(
+                aes(xintercept = median(STEP1_ExamScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+
+step1_score  #Pretty normal! Could be a useful continuous variable. 
+
+step2_score <- ggplot(df, aes(x=STEP2CK_ExamScore))+
+            geom_histogram() +
+            geom_vline(
+                aes(xintercept = mean(STEP2CK_ExamScore, na.rm = TRUE),
+                linetype = "Mean")) +
+            geom_vline(
+                aes(xintercept = median(STEP2CK_ExamScore, na.rm = TRUE),
+        linetype = "Median")
+  )
+
+step2_score #pretty normal!
+
+table(df$STEP1_PassFail) #Only a few fails.
+
+table(df$STEP2CK_PassFail) #Only 1 fail. 
+
+```
+$\alpha $
