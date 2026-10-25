@@ -12,14 +12,16 @@ library(ggplot2)
 library(table1)
 library(gtsummary)
 
-#TEST EDIT#
 
 ```
 
 ```{r Load Data, include = FALSE}
 #Open the dataset
 
-df <- read.csv(file.path("C:/Users/sehen/OneDrive/Desktop/MPH Coursework/Statistical Consulting/hengeveld_BIOS6621/DataRaw/BIOS6621_Guth_data.csv"))
+setwd("C:/Users/sehen/OneDrive/Desktop/MPH Coursework/Statistical Consulting/hengeveld_BIOS6621")
+
+#For some reason my read.csv function isn't accepting the relative path. 
+df <- read.table("DataRaw/BIOS6621_Guth_data.csv", header=TRUE, sep=",")
 
 #Take a peek
 View(df)
@@ -165,11 +167,17 @@ df_reduced <- df %>%
 
 #tbl_summary(df_reduced)
 
+df_missing <- df%>%
+  filter(missing_osce ==16)
+
+
+
 ```
-The outcome variables for this analysis are the OSCE scores. There are 16 different OSCE scores provided within this dataset. Most include several scores for the same interaction. Missingness for each score ranges from 41-65 observations, which is a significant missing rate for each score, and will need to be addressed in the analysis plan. A total of `r sum(df$missing_osce == 16)` students were missing all 16 OSCE scores, and will need to be excluded from the analysis, bringing the total sample down to `r nrow(df) - sum(df$missing_osce == 16)`. After excluding those with all OSCE scores missing, the remaining missingness within the OSCE scores ranges from 2-26. 
+The outcome variables for this analysis are the OSCE scores. There are 16 different OSCE scores provided within this dataset. Most include several scores for the same interaction. Missingness for each score ranges from 41-65 observations, which is a significant missing rate for each score, and will need to be addressed in the analysis plan. A total of `r sum(df$missing_osce == 16)` students were missing all 16 OSCE scores, and will need to be excluded from the analysis, bringing the total sample down to `r nrow(df) - sum(df$missing_osce == 16)`. Participants with all OSCE scores missing vary by race (including URM status), gender, class scores and test scores.  After excluding those with all OSCE scores missing, the remaining missingness within the OSCE scores ranges from 2-26. These leaves an analytical sample of 160.
+
 
 <details>
-<summary><strong> "Click here for table 1 after removal of students with no OSCE scores" </strong> </summary>
+<summary><strong> "Click here for table 1 after removal of students with no OSCE scores and table 1 for removed students" </strong> </summary>
 
 ```{r}
 OSCE_only_reduced <- table1(~
@@ -194,6 +202,10 @@ OSCE_only_reduced <- table1(~
 
 ##Call the table
 OSCE_only_reduced
+
+tbl_summary(df_missing, 
+            by = URM)
+      
 
 ```
  </details>
@@ -346,18 +358,17 @@ table(df$URM, df$URM_AAMC)
 ```
 
 
-
 For analysis, we intend to use the University supplied definition, as it includes more students who are under-represented at the School of Medicine, which may impact their experience of bias. 
 
-We then attempted to re-create the URM variable, using the three supplied race and ethnicity categories. We identified one person who is currently flagged as URM but there is no information in the three race/ethnicity columns to support that categorization. They should likely be recoded as "Unknown." That would bring the total number of unknowns in the data-set to 8. 
+We then attempted to re-create the URM variable, using the three supplied race and ethnicity categories. We identified one person who is currently flagged as URM but there is no information in the three race/ethnicity columns to support that categorization. They should likely be recoded as "Unknown." That would bring the total number of unknowns in the data-set to 6. These six must be removed from the analytical sample, because they have no available information for the primary explanatory variable, leaving an analytical sample size of 154.  
 
 ```{r Code Exploring URM-ness, include = FALSE}
 
-table(df$race_cat_desc, df$race_desc)
+table(df_reduced$race_cat_desc, df_reduced$race_desc)
 
-unique(df$additional_ethnicity)
-unique(df$race_desc)
-unique(df$race_cat_desc)
+unique(df_reduced$additional_ethnicity)
+unique(df_reduced$race_desc)
+unique(df_reduced$race_cat_desc)
 
 #We'll focus on "additional_ethnicity" since it seems to specifically flag the URM categories: AI/AN, Hispanic, Vietnamese, Black/African American, Native Hawaiian.
 
@@ -413,7 +424,7 @@ urm_group <- c(
   "Afro-Caribbean"
 )
 
-df <- df %>%
+df_reduced <- df_reduced %>%
   mutate(
     urm_check_2 = case_when(
       if_any(
@@ -424,12 +435,15 @@ df <- df %>%
       )
     )
   
-table(df$urm_check_2)
-table(df$URM)
+table(df_reduced$urm_check_2)
+table(df_reduced$URM)
 
-df %>%
+df_reduced %>%
   filter(URM != urm_check_2) %>%
   select(URM, urm_check_2, additional_ethnicity, race_desc, race_cat_desc, gender)
+
+df_final <- df_reduced %>%
+  filter (URM != "Unknown")
 
 ```
 
@@ -442,20 +456,20 @@ Per the PI, the final course grades are more relevant for this analysis than cli
 
 ```{r Sample Bar Charts, echo = FALSE, warning = FALSE, message = FALSE}
 #One with lots of juicy data.
-hac_plot <- ggplot(df_reduced, aes(x = HAC_Final_Course_Grade)) + 
+hac_plot <- ggplot(df_final, aes(x = HAC_Final_Course_Grade)) + 
   geom_bar()
 
 hac_plot
 
 #One with too much missing.
-aac_plot <- ggplot(df_reduced, aes(x = AAC_Final_Course_Grade)) +
+aac_plot <- ggplot(df_final, aes(x = AAC_Final_Course_Grade)) +
     geom_bar() 
 
 aac_plot
 
 
 #One with not enough variation.
-ec_plot <- ggplot(df_reduced, aes(x = EC_Final_Course_Grade)) +
+ec_plot <- ggplot(df_final, aes(x = EC_Final_Course_Grade)) +
   geom_bar()
 
 ec_plot
@@ -480,12 +494,12 @@ finals_grades <- c(
 
 plot_grades <- function(variable) {
   
-    ggplot(df, aes(x = .data[[variable]])) +
+    ggplot(df_final, aes(x = .data[[variable]])) +
     geom_bar() }
 
 lapply(finals_grades, plot_grades)
 
-step1_score <- ggplot(df, aes(x=STEP1_ExamScore))+
+step1_score <- ggplot(df_final, aes(x=STEP1_ExamScore))+
             geom_histogram() +
             geom_vline(
                 aes(xintercept = mean(STEP1_ExamScore, na.rm = TRUE),
@@ -497,14 +511,16 @@ step1_score <- ggplot(df, aes(x=STEP1_ExamScore))+
 
 ```
 
-Of the final course grades, the CPC, HAC, ICAC, OBG, OPC and PC final course grades have enough data and enough variation to possibly be useful covariates. AAC_Final has more than 150 missing values in the original data-set. EC_Final and MSK_Final are almost all pass, therefore are not likely to be useful covariates. There are very few fail/pass with remediation scores across all final grades. 
+Of the final course grades, the CPC, HAC, ICAC, OBG, OPC and PC final course grades have enough data and enough variation to possibly be useful covariates. However the PI has indicated that temporality cannot be established between grades and the OSCE scores, indicating that these would not be helpful covariates to include in this analysis.
+
+AAC_Final has more than 150 missing values in the original data-set. EC_Final and MSK_Final are almost all pass, therefore are not likely to be useful covariates. There are very few fail/pass with remediation scores across all final grades. 
 
 ### STEP1 and STEP2 Exam Scores
 
 STEP1 and STEP2 Exam scores are also included in the dataset as both continuous variables and as related binary variables indicating pass/fail status. Of the total 160 with STEP 1 scores within the reduced dataset, only `r sum(df_reduced$STEP1_PassFail == "F")` had a failing score. Of the 160 with STEP2 within the reduced dataset, only `r sum(df_reduced$STEP2_PassFail == "F")` had a failing score. The test scores were plotted for visual examination:
 
 ```{r STEP1 and STEP2 Scores, echo = FALSE, warning = FALSE, message = FALSE}
-step1_score <- ggplot(df, aes(x=STEP1_ExamScore))+
+step1_score <- ggplot(df_final, aes(x=STEP1_ExamScore))+
             geom_histogram() +
             geom_vline(
                 aes(xintercept = mean(STEP1_ExamScore, na.rm = TRUE),
@@ -516,7 +532,7 @@ step1_score <- ggplot(df, aes(x=STEP1_ExamScore))+
 
 step1_score  #Pretty normal! Could be a useful continuous variable. 
 
-step2_score <- ggplot(df, aes(x=STEP2CK_ExamScore))+
+step2_score <- ggplot(df_final, aes(x=STEP2CK_ExamScore))+
             geom_histogram() +
             geom_vline(
                 aes(xintercept = mean(STEP2CK_ExamScore, na.rm = TRUE),
@@ -531,16 +547,67 @@ step2_score #pretty normal!
 
 ```
 
+STEP scores will not be included in the analysis, as we cannot establish temporality between the exam scores and the OSCE scores, per the PI.
+
+#Final Analytical Sample
+The final analytical sample, after the removal of individuals with no OSCE scores available and insufficient race/ethnicity information to estbalish URM status is 154 students. After reviewing exam scores and course grades, no additional covariates have been selected for inclusion in the analysis. Secondary analyses may explore gender differences. 
+
+The final table 1 is below:
+
+```{r Final Table 1, echo = FALSE}
+
+final_table_1 <- table1(~
+       gender +
+       P1SprBates_PhysExamScore + 
+       P1SprBates_CommScore+
+       P1SprBates_MedDocScore+ 
+       P1FallBodySys_PhysExamScore+ 
+       P2FallRamos_PhysExamScore+ 
+       P2FallRamos_CommScore+ 
+       P2FallRamos_OralPresScore+ 
+       P2FallPayne_PhysExamScore+ 
+       P2FallPayne_CommScore+ 
+       P2FallPayne_MedDocScore+ 
+       P2SpringHyde_PhysExamScore+ 
+       P2SpringHyde_CommScore+ 
+       P2SpringHyde_MedDocScore+ 
+       P2SpringSnelling_PhysExamScore+
+       P2SpringSnelling_CommScore+
+       P2SpringSnelling_MedDocScore
+       |URM, data = df_final)
+
+
+final_table_1
+```
 
 
 # Questions for the Primary Investigator
 Q1. We observed that some OSCE scores are only multiples of 5, while others extend to the hundredths place (eg: 98.53). While this isn't a problem for analysis, it might signal an error with the scores, if they are both supposed to be formatted similarly. Is this difference in score values a cause for concern?
 
+PI Answer: No further info is available.  Assume scores are correct.
+
+Note: No changes or adjustments made
+
 Q2. For the 7-8 students whose URM status is currently categorized as "Unknown", do you have a preference for how these "Unknowns" are handled? It is a small enough group that it should not be included as a seperate sub-group for analysis, and should be either recoded as URM/non-URM or removed from the data-set. 
+
+PI Answer: It is a small enough group that it should not be included as a seperate sub-group for analysis, and should be either recoded as URM/non-URM or removed from the data-set.
+
+Note: These have been dropped accordingly, leaving an analytical sample of 154. See variable exploration: URM section above. 
 
 Q3. Some gender identities are mentioned as being URM. Do we want to explore these in our analysis? If we want to explore the distinction between male/female, we have the data to do that. There are only a few "D" values included in the data. 
 
+PI Answer: These are all the data we have.  Too few here.  Great discussion point to consider. 
+
+Note: Will explore male/female score differences as a secondary analysis. Included in SOW.
+
 Q4. There are some final grades that have enough variability to be useful as possible covariates. What would we expect the relationship between final course grades and OSCE scores to be? There are very few fail or pass with remediation options, so we would need to explore the distinctions between pass, high pass, and honors. How are these differentiated?
+
+PI Answer: No additional information is available.  consider timing of scores vs final grade...does it make sense to use grades as a covariate?  what would interpretation be?
+
+Note: The PI pointed out that the timing of scores versus the final grades would be difficult to interpret. Will not use grades as a covariate at this time. SOW has been adjusted to remove grades as a possible covaraite.
 
 Q5. The STEP1 and STEP2 exam scores are more normally distributed with minimal missingness. These might be able to function as covariates in a model. However, only a very small proportion of the sample failed. What might we expect the relationship between the STEP exam scores and the OSCE scores to be? 
 
+PI Answer: Same issue with temporarily as above.  your concern about limited "fails" is valid..so, will this be informative?
+
+Note: STEP exam scores will not be included as a covariate. SOW has been adjusted accordingly. 
